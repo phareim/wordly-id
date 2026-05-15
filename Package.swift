@@ -16,9 +16,17 @@ let package = Package(
             name: "WordlyID",
             resources: [.process("Resources")]
         ),
+        .systemLibrary(
+            name: "CSQLite",
+            pkgConfig: "sqlite3",
+            providers: [
+                .apt(["libsqlite3-dev"]),
+                .brew(["sqlite3"]),
+            ]
+        ),
         .target(
             name: "WordlyRefs",
-            dependencies: ["WordlyID"]
+            dependencies: ["WordlyID", "CSQLite"]
         ),
         .testTarget(
             name: "WordlyIDTests",
