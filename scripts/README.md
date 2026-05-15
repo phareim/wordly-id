@@ -14,3 +14,11 @@ python3 scripts/gen_wordlist.py
 ```
 
 Output is deterministic (seeded). Re-run only when changing the curation rules or the `EXCLUDE` list. The output file is committed; the venv is not.
+
+## Troubleshooting
+
+On nltk ≥ 3.9 the perceptron tagger was renamed. If `gen_wordlist.py` fails with a `LookupError` about `averaged_perceptron_tagger`, pre-download the renamed model:
+
+```bash
+python3 -c "import nltk; nltk.download('averaged_perceptron_tagger_eng'); nltk.download('punkt')"
+```
