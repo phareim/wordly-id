@@ -25,7 +25,7 @@ TARGET_PER_BUCKET = 800
 
 EXCLUDE = {
     # Body parts, medical, awkward in ID contexts
-    "armpit", "bowels", "buttocks", "earwax", "phlegm", "pustule", "urinate", "vomit",
+    "armpit", "bowels", "buttocks", "earwax", "freebase", "phlegm", "pustule", "urinate", "vomit",
     # Slurs / dated / awkward
     "savage", "tribal", "redneck",
     # Confusable / homophone-y
