@@ -124,6 +124,85 @@ public actor TitleMirror {
         }
     }
 
+    public struct Hit: Sendable, Hashable {
+        public let wordlyID: String
+        public let title: String
+        public let mtime: Int64
+        public let statusGlyph: String?
+    }
+
+    public func search(query: String, kind: AnyReferenceKind, limit: Int) -> [Hit] {
+        guard let db else { return [] }
+        let table = Self.tableName(for: kind)
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        var hits: [Hit] = []
+        if q.isEmpty {
+            let sql = "SELECT wordly_id, title, mtime, status_glyph FROM \(table) WHERE deleted = 0 ORDER BY mtime DESC LIMIT ?"
+            var stmt: OpaquePointer?
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            sqlite3_bind_int(stmt, 1, Int32(limit))
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                hits.append(rowToHit(stmt!))
+            }
+            return hits
+        }
+
+        let prefixSQL = "SELECT wordly_id, title, mtime, status_glyph FROM \(table) WHERE deleted = 0 AND LOWER(title) LIKE ? ORDER BY mtime DESC LIMIT ?"
+        var prefixStmt: OpaquePointer?
+        defer { sqlite3_finalize(prefixStmt) }
+        guard sqlite3_prepare_v2(db, prefixSQL, -1, &prefixStmt, nil) == SQLITE_OK else { return [] }
+        sqlite3_bind_text(prefixStmt, 1, "\(q)%", -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(prefixStmt, 2, Int32(limit))
+        while sqlite3_step(prefixStmt) == SQLITE_ROW {
+            hits.append(rowToHit(prefixStmt!))
+        }
+        if !hits.isEmpty { return hits }
+
+        let remaining = limit
+        let knownIDs = Set(hits.map(\.wordlyID))
+        let substringSQL = "SELECT wordly_id, title, mtime, status_glyph FROM \(table) WHERE deleted = 0 AND LOWER(title) LIKE ? ORDER BY mtime DESC LIMIT ?"
+        var subStmt: OpaquePointer?
+        defer { sqlite3_finalize(subStmt) }
+        guard sqlite3_prepare_v2(db, substringSQL, -1, &subStmt, nil) == SQLITE_OK else { return hits }
+        sqlite3_bind_text(subStmt, 1, "%\(q)%", -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int(subStmt, 2, Int32(remaining))
+        while sqlite3_step(subStmt) == SQLITE_ROW {
+            let hit = rowToHit(subStmt!)
+            if !knownIDs.contains(hit.wordlyID) {
+                hits.append(hit)
+                if hits.count >= limit { break }
+            }
+        }
+        return hits
+    }
+
+    public func resolve(_ wordlyID: String, kind: AnyReferenceKind) -> Hit? {
+        guard let db else { return nil }
+        let table = Self.tableName(for: kind)
+        let sql = "SELECT wordly_id, title, mtime, status_glyph FROM \(table) WHERE wordly_id = ?"
+        var stmt: OpaquePointer?
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        sqlite3_bind_text(stmt, 1, wordlyID, -1, SQLITE_TRANSIENT)
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+        return rowToHit(stmt!)
+    }
+
+    private func rowToHit(_ stmt: OpaquePointer) -> Hit {
+        let wordlyID = String(cString: sqlite3_column_text(stmt, 0))
+        let title = String(cString: sqlite3_column_text(stmt, 1))
+        let mtime = sqlite3_column_int64(stmt, 2)
+        let glyph: String?
+        if let cstr = sqlite3_column_text(stmt, 3) {
+            glyph = String(cString: cstr)
+        } else {
+            glyph = nil
+        }
+        return Hit(wordlyID: wordlyID, title: title, mtime: mtime, statusGlyph: glyph)
+    }
+
     private func apply<Item: ReferenceItem>(page: TitlesPage<Item>, kind: AnyReferenceKind) throws {
         let table = Self.tableName(for: kind)
         let encoder = JSONEncoder()
