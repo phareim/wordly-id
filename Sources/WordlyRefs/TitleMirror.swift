@@ -47,7 +47,9 @@ public actor TitleMirror {
                                                 withIntermediateDirectories: true)
         var handle: OpaquePointer?
         guard sqlite3_open(url.path, &handle) == SQLITE_OK else {
-            throw TitleMirrorError.openFailed(reason: String(cString: sqlite3_errmsg(handle)))
+            let reason = String(cString: sqlite3_errmsg(handle))
+            sqlite3_close(handle)
+            throw TitleMirrorError.openFailed(reason: reason)
         }
         self.db = handle
     }
@@ -124,9 +126,14 @@ public actor TitleMirror {
 
     private func apply<Item: ReferenceItem>(page: TitlesPage<Item>, kind: AnyReferenceKind) throws {
         let table = Self.tableName(for: kind)
+        let encoder = JSONEncoder()
+        // Encode everything BEFORE opening the transaction so an encoder throw
+        // doesn't leave SQLite in a half-open BEGIN state.
+        let encodedItems: [(item: Item, raw: Data)] = try page.items.map { item in
+            (item, try encoder.encode(item))
+        }
         try exec("BEGIN")
-        for item in page.items {
-            let raw = try JSONEncoder().encode(item)
+        for (item, raw) in encodedItems {
             if item.deleted {
                 var stmt: OpaquePointer?
                 defer { sqlite3_finalize(stmt) }
