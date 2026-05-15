@@ -42,6 +42,9 @@ struct Wordlist: Sendable {
                 throw LoadError.parseFailed(reason: "unknown section: \(header)")
             }
         }
+        guard !nouns.isEmpty, !adjectives.isEmpty, !verbs.isEmpty else {
+            throw LoadError.parseFailed(reason: "one or more sections are empty")
+        }
         return Wordlist(nouns: nouns, adjectives: adjectives, verbs: verbs)
     }
 }
