@@ -50,4 +50,33 @@ final class GenerateTests: XCTestCase {
         XCTAssertEqual(adjectiveHits, 50, "every word-2 should be an adjective")
         XCTAssertEqual(verbHits, 50, "every word-3 should be a verb")
     }
+
+    func test_isUniqueCallback_returnsFirstAcceptedID() {
+        let id = WordlyID.generate(prefix: "T", isUnique: { _ in true })
+        XCTAssertTrue(id.hasPrefix("T-"))
+    }
+
+    func test_isUniqueCallback_retriesOnCollision() {
+        var attempts = 0
+        let id = WordlyID.generate(prefix: "T", isUnique: { _ in
+            attempts += 1
+            return attempts >= 2  // first attempt rejected, second accepted
+        })
+        XCTAssertEqual(attempts, 2)
+        XCTAssertTrue(id.hasPrefix("T-"))
+    }
+
+    func test_isUniqueCallback_fallsBackToSuffixAfterThreeRejections() {
+        var attempts = 0
+        let id = WordlyID.generate(prefix: "T", isUnique: { candidate in
+            attempts += 1
+            // Reject the first 3 fresh draws; accept anything with a suffix.
+            if candidate.hasSuffix("-2") || candidate.hasSuffix("-3") || candidate.hasSuffix("-4") {
+                return true
+            }
+            return false
+        })
+        XCTAssertGreaterThanOrEqual(attempts, 4, "should attempt at least 3 draws + 1 suffix")
+        XCTAssertTrue(id.hasSuffix("-2"), "first fallback suffix should be -2; got \(id)")
+    }
 }
