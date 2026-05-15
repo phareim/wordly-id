@@ -34,6 +34,30 @@ public enum WordlyID {
         }
     }
 
+    /// Decompose a WordlyID into its prefix and words. Returns nil if the input
+    /// is not a syntactically valid WordlyID.
+    public static func parse(_ id: String) -> (prefix: String, words: [String])? {
+        guard !id.isEmpty else { return nil }
+        let segments = id.split(separator: "-", omittingEmptySubsequences: false).map(String.init)
+        // Need a prefix + at least 3 words.
+        guard segments.count >= 4 else { return nil }
+        // Every segment non-empty and uppercase-letters-or-digits (digits for suffix fallback).
+        for segment in segments {
+            guard !segment.isEmpty else { return nil }
+            for scalar in segment.unicodeScalars {
+                let isUppercaseLetter = (0x41...0x5A).contains(scalar.value)
+                let isDigit = (0x30...0x39).contains(scalar.value)
+                guard isUppercaseLetter || isDigit else { return nil }
+            }
+        }
+        return (segments[0], Array(segments.dropFirst()))
+    }
+
+    /// True iff `id` is a syntactically valid WordlyID.
+    public static func validate(_ id: String) -> Bool {
+        parse(id) != nil
+    }
+
     // MARK: - Internal cache
 
     private static let cache = WordlistCache()
