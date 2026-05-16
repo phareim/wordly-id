@@ -16,12 +16,13 @@ let package = Package(
             name: "WordlyID",
             resources: [.process("Resources")]
         ),
+        // No pkgConfig: rely on the SDK's libsqlite3 on Apple platforms
+        // (works for macOS, iOS, iOS Simulator) and the system libsqlite3
+        // on Linux. The shim's `link "sqlite3"` directive injects -lsqlite3.
         .systemLibrary(
             name: "CSQLite",
-            pkgConfig: "sqlite3",
             providers: [
                 .apt(["libsqlite3-dev"]),
-                .brew(["sqlite3"]),
             ]
         ),
         .target(
