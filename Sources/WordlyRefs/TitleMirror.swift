@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(SQLite3)
+import SQLite3
+#else
 import CSQLite
+#endif
 
 /// One page of items from a kind's `/titles` endpoint.
 public struct TitlesPage<Item: ReferenceItem>: Sendable {

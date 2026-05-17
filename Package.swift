@@ -27,7 +27,10 @@ let package = Package(
         ),
         .target(
             name: "WordlyRefs",
-            dependencies: ["WordlyID", "CSQLite"]
+            dependencies: [
+                "WordlyID",
+                .target(name: "CSQLite", condition: .when(platforms: [.linux])),
+            ]
         ),
         .testTarget(
             name: "WordlyIDTests",
